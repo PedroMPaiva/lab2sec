@@ -1,0 +1,32 @@
+version: '3.8' # Especifica a versão da sintaxe do Compose
+
+services: # A "lista" de contêineres que queremos rodar
+
+  # Serviço 1: Nosso Aplicativo Flask
+  app:
+    build: ./app  # "Construa este serviço usando o Dockerfile da pasta ./app"
+    ports:
+      - "5000:5000" # Mapeia a porta 5000 do host para a 5000 do contêiner
+    environment:
+      # "Injeta" os segredos do arquivo .env para o nosso app Python
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_HOST=${DB_HOST}
+    depends_on:
+      - db          # "Não inicie o 'app' até que o serviço 'db' esteja pronto"
+
+  # Serviço 2: O Banco de Dados PostgreSQL
+  db:
+    image: postgres:15-alpine # "Use a imagem oficial do Postgres (versão 'alpine' leve)"
+    environment:
+      # "Configura" o contêiner do Postgres usando nossos segredos
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # "Salve os dados do banco na pasta 'postgres_data'"
+
+# Define o "volume" (armazenamento persistente)
+volumes:
+  postgres_data:
