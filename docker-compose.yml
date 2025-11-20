@@ -1,8 +1,8 @@
 version: '3.8' # Especifica a versão da sintaxe do Compose
 
-services: # A "lista" de contêineres que queremos rodar
+services: # A conjunto de contêineres que ira rodar
 
-  # Serviço 1: Nosso Aplicativo Flask
+  # Serviço 1: Aplicativo Flask
   app:
     build: ./app  # "Construa este serviço usando o Dockerfile da pasta ./app"
     ports:
@@ -15,6 +15,11 @@ services: # A "lista" de contêineres que queremos rodar
       - DB_HOST=${DB_HOST}
     depends_on:
       - db          # "Não inicie o 'app' até que o serviço 'db' esteja pronto"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - default
+      - wazuh_net
 
   # Serviço 2: O Banco de Dados PostgreSQL
   db:
@@ -30,3 +35,12 @@ services: # A "lista" de contêineres que queremos rodar
 # Define o "volume" (armazenamento persistente)
 volumes:
   postgres_data:
+
+networks:
+  default:
+    driver: bridge
+
+  wazuh_net:
+    external: true
+    name: single-node_default
+
