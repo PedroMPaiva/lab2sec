@@ -2,6 +2,11 @@ import os
 import time
 import psycopg2 # Novo import para falar com o Postgres
 from flask import Flask, request, jsonify
+import logging 
+
+logging.basicConfig(filename='app.log', level=logging.INFO,
+                    format='%(asctime)s myshop-app: %(message)s',
+                    datefmt='%b %d %H:%M:%S')
 
 # --- 1. Configuração do Banco de Dados ---
 # O Docker Compose vai "injetar" estes valores no nosso ambiente
@@ -86,6 +91,10 @@ def login():
     dados = request.get_json()
     usuario_enviado = dados.get('usuario')
     senha_enviada = dados.get('senha')
+    if "'" in usuario_enviado or "OR" in usuario_enviado.upper():
+        msg_alerta = f"[ALERTA DE SEGURANÇA] SQL Injection Detectado! IP Origem: {request.remote_addr} Payload: {usuario_enviado}"
+        print(msg_alerta)            # Mostra no terminal do Docker
+        logging.critical(msg_alerta) # <--- SALVA NO ARQUIVO app.log PARA O WAZUH LER
 
     # --- AQUI ESTÁ A VULNERABILIDADE DE SQL INJECTION (REAL) ---
     # Estamos construindo a query por concatenação de strings.
