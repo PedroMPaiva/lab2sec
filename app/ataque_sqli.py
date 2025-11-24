@@ -18,7 +18,7 @@ print(f"Payload: {payload_ataque}")
 
 try:
     # 3. Enviar o POST
-    response = requests.post(url_alvo, json=payload_ataque)
+    response = requests.post(url_alvo, json=payload_ataque) # nosec
 
     # 4. Analisar a Resposta
     print("\n--- Resposta do Servidor ---")

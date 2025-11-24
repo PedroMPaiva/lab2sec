@@ -99,7 +99,7 @@ def login():
     # --- AQUI ESTÁ A VULNERABILIDADE DE SQL INJECTION (REAL) ---
     # Estamos construindo a query por concatenação de strings.
     # Esta é a "dívida técnica" que simula o código legado.
-    query = "SELECT * FROM users WHERE username = '" + usuario_enviado + "' AND password = '" + senha_enviada + "'"
+    query = "SELECT * FROM users WHERE username = '" + usuario_enviado + "' AND password = '" + senha_enviada + "'"  # nosec
     print(f"\n[LOG] Executando SQL vulnerável: {query}")
 
     conn = get_db_connection()
@@ -155,4 +155,4 @@ if __name__ == '__main__':
     init_db()
     # 2. Depois, inicie o servidor web
     print("Iniciando o servidor Flask em http://0.0.0.0:5000")
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000) # nosec
