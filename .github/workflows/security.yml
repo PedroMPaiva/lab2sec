@@ -1,0 +1,36 @@
+name: Pipeline de Segurança DevSecOps
+
+# 1. O GATILHO: Quando rodar?
+# Roda em todo 'push' feito na branch 'master'
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+# 2. O TRABALHO: O que fazer?
+jobs:
+  analise-sast:
+    name: Análise Estática de Segurança (Bandit)
+    runs-on: ubuntu-latest  # O GitHub nos empresta uma máquina Ubuntu
+
+    steps:
+      # Passo A: O robô baixa o seu código do repositório
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      # Passo B: O robô instala o Python na máquina dele
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # Passo C: O robô instala a ferramenta de segurança (Bandit)
+      - name: Instalar Bandit
+        run: pip install bandit
+
+      # Passo D: O robô executa o scan na pasta 'app'
+      # -r: recursivo (olha todas as pastas)
+      # -lll: nível de severidade (mostra tudo)
+      - name: Executar Scan de Segurança
+        run: bandit -r app/
