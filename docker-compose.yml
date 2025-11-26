@@ -1,12 +1,19 @@
-version: '3.8' # Especifica a versão da sintaxe do Compose
+version: "3.8" # Especifica a versão da sintaxe do Compose
 
 services: # A conjunto de contêineres que ira rodar
-
-  # Serviço 1: Aplicativo Flask
-  app:
-    build: ./app  # "Construa este serviço usando o Dockerfile da pasta ./app"
+  #Serviço 1: WAF
+  waf:
+    build: ./waf
     ports:
-      - "5000:5000" # Mapeia a porta 5000 do host para a 5000 do contêiner
+      - "80:80" # A porta de entrada agora é a 80 (padrão web)
+    depends_on:
+      - app
+    networks:
+      - default
+
+  # Serviço 2: Aplicativo Flask
+  app:
+    build: ./app # "Construa este serviço usando o Dockerfile da pasta ./app"
     environment:
       # "Injeta" os segredos do arquivo .env para o nosso app Python
       - DB_USER=${DB_USER}
@@ -14,23 +21,23 @@ services: # A conjunto de contêineres que ira rodar
       - DB_NAME=${DB_NAME}
       - DB_HOST=${DB_HOST}
     depends_on:
-      - db          # "Não inicie o 'app' até que o serviço 'db' esteja pronto"
+      - db # "Não inicia o 'app' até que o serviço 'db' esteja pronto"
     volumes:
       - /etc/localtime:/etc/localtime:ro
     networks:
       - default
       - wazuh_net
 
-  # Serviço 2: O Banco de Dados PostgreSQL
+  # Serviço 3: O Banco de Dados PostgreSQL
   db:
-    image: postgres:15-alpine # "Use a imagem oficial do Postgres (versão 'alpine' leve)"
+    image: postgres:15-alpine # "Usando imagem oficial do Postgres (versão 'alpine')"
     environment:
-      # "Configura" o contêiner do Postgres usando nossos segredos
+      # "Configura" o contêiner do Postgres usando os secrets
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
     volumes:
-      - postgres_data:/var/lib/postgresql/data # "Salve os dados do banco na pasta 'postgres_data'"
+      - postgres_data:/var/lib/postgresql/data
 
 # Define o "volume" (armazenamento persistente)
 volumes:
@@ -43,4 +50,3 @@ networks:
   wazuh_net:
     external: true
     name: single-node_default
-

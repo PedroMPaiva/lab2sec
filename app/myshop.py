@@ -1,8 +1,8 @@
 import os
 import time
-import psycopg2 # Novo import para falar com o Postgres
+import psycopg2  # Novo import para falar com o Postgres
 from flask import Flask, request, jsonify
-import logging 
+import logging
 
 logging.basicConfig(filename='app.log', level=logging.INFO,
                     format='%(asctime)s myshop-app: %(message)s',
@@ -22,6 +22,8 @@ app.config['JSON_AS_ASCII'] = False
 # --- 3. Função de Conexão (Novo) ---
 # Esta função nos conecta ao banco de dados.
 # Inclui um loop de "retry" pois o app pode iniciar antes do banco.
+
+
 def get_db_connection():
     retries = 5
     while retries > 0:
@@ -35,14 +37,17 @@ def get_db_connection():
             print("Conexão com o PostgreSQL bem-sucedida!")
             return conn
         except psycopg2.OperationalError:
-            print("Erro ao conectar... O banco de dados pode estar iniciando. Tentando novamente em 5s.")
-            time.sleep(5) # Espera 5 segundos e tenta de novo
+            print(
+                "Erro ao conectar... O banco de dados pode estar iniciando. Tentando novamente em 5s.")
+            time.sleep(5)  # Espera 5 segundos e tenta de novo
             retries -= 1
     print("ERRO: Não foi possível conectar ao banco de dados após várias tentativas.")
-    return None # Retorna None se falhar
+    return None  # Retorna None se falhar
 
 # --- 4. Função de Inicialização do Banco (Novo) ---
 # Esta função cria nossas tabelas e insere os dados de teste
+
+
 def init_db():
     conn = get_db_connection()
     if conn is None:
@@ -68,24 +73,32 @@ def init_db():
             qtd INTEGER
         );
         ''')
-        
+
         # Verifica se o admin já existe antes de inserir
         cur.execute("SELECT * FROM users WHERE username = 'admin'")
         if cur.fetchone() is None:
             print("Populando o banco de dados com dados de teste...")
             # Insere os usuários
-            cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", ('admin', 'senha123'))
-            cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", ('pedro', 'password'))
-            
+            cur.execute(
+                "INSERT INTO users (username, password) VALUES (%s, %s)", ('admin', 'senha123'))
+            cur.execute(
+                "INSERT INTO users (username, password) VALUES (%s, %s)", ('pedro', 'password'))
+
             # Insere os carrinhos
-            cur.execute("INSERT INTO carts (username, item, qtd) VALUES (%s, %s, %s)", ('admin', 'Servidor Dell', 2))
-            cur.execute("INSERT INTO carts (username, item, qtd) VALUES (%s, %s, %s)", ('admin', 'Cadeira de Escritório', 1000)) # O valor 1000 que você testou
-            cur.execute("INSERT INTO carts (username, item, qtd) VALUES (%s, %s, %s)", ('pedro', 'Teclado Mecânico', 1))
-        
-        conn.commit() # Salva as alterações no banco
+            cur.execute("INSERT INTO carts (username, item, qtd) VALUES (%s, %s, %s)",
+                        ('admin', 'Servidor Dell', 2))
+            cur.execute("INSERT INTO carts (username, item, qtd) VALUES (%s, %s, %s)",
+                        # O valor 1000 que você testou
+                        ('admin', 'Cadeira de Escritório', 1000))
+            cur.execute("INSERT INTO carts (username, item, qtd) VALUES (%s, %s, %s)",
+                        ('pedro', 'Teclado Mecânico', 1))
+
+        conn.commit()  # Salva as alterações no banco
     print("Banco de dados inicializado com sucesso.")
 
 # --- 5. Endpoint de Login (Refatorado e VULNERÁVEL) ---
+
+
 @app.route("/login", methods=['POST'])
 def login():
     dados = request.get_json()
@@ -94,12 +107,14 @@ def login():
     if "'" in usuario_enviado or "OR" in usuario_enviado.upper():
         msg_alerta = f"[ALERTA DE SEGURANÇA] SQL Injection Detectado! IP Origem: {request.remote_addr} Payload: {usuario_enviado}"
         print(msg_alerta)            # Mostra no terminal do Docker
-        logging.critical(msg_alerta) # <--- SALVA NO ARQUIVO app.log PARA O WAZUH LER
+        # <--- SALVA NO ARQUIVO app.log PARA O WAZUH LER
+        logging.critical(msg_alerta)
 
     # --- AQUI ESTÁ A VULNERABILIDADE DE SQL INJECTION (REAL) ---
     # Estamos construindo a query por concatenação de strings.
     # Esta é a "dívida técnica" que simula o código legado.
-    query = "SELECT * FROM users WHERE username = '" + usuario_enviado + "' AND password = '" + senha_enviada + "'"  # nosec
+    query = "SELECT * FROM users WHERE username = '" + usuario_enviado + \
+        "' AND password = '" + senha_enviada + "'"  # nosec
     print(f"\n[LOG] Executando SQL vulnerável: {query}")
 
     conn = get_db_connection()
@@ -109,8 +124,8 @@ def login():
     with conn.cursor() as cur:
         try:
             cur.execute(query)
-            user = cur.fetchone() # Pega o primeiro resultado
-            
+            user = cur.fetchone()  # Pega o primeiro resultado
+
             if user:
                 # O ataque 'admin' OR 1=1 --' VAI retornar um usuário (o admin)
                 # e o login será um sucesso.
@@ -123,6 +138,8 @@ def login():
             return jsonify({"erro": "Erro na consulta"}), 500
 
 # --- 6. Endpoint de Carrinho (Refatorado e VULNERÁVEL) ---
+
+
 @app.route("/carrinho/<string:nome_usuario>", methods=['GET'])
 def obter_carrinho(nome_usuario):
     # --- AQUI ESTÁ A FALHA (IDOR) ---
@@ -139,14 +156,15 @@ def obter_carrinho(nome_usuario):
         # A falha de segurança aqui é o IDOR (a lógica de negócio).
         query = "SELECT item, qtd FROM carts WHERE username = %s"
         cur.execute(query, (nome_usuario,))
-        carrinho_items = cur.fetchall() # Pega todos os itens
+        carrinho_items = cur.fetchall()  # Pega todos os itens
 
         if not carrinho_items:
             return jsonify({"erro": "Carrinho não encontrado"}), 404
-        
+
         # Formata a saída
         carrinho = [{"item": item, "qtd": qtd} for item, qtd in carrinho_items]
         return jsonify(carrinho), 200
+
 
 # --- 7. "Abra o Restaurante" (Atualizado) ---
 if __name__ == '__main__':
@@ -155,4 +173,4 @@ if __name__ == '__main__':
     init_db()
     # 2. Depois, inicie o servidor web
     print("Iniciando o servidor Flask em http://0.0.0.0:5000")
-    app.run(debug=False, host='0.0.0.0', port=5000) # nosec
+    app.run(debug=False, host='0.0.0.0', port=5000)  # nosec
