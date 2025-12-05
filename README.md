@@ -1,59 +1,55 @@
-# Lab2Sec: DevSecOps & SIEM Automation Lab 🛡️🐳
+# Lab2Sec: DevSecOps & SIEM Automation Lab 🛡️🚀
 
 ![DevSecOps](https://img.shields.io/badge/Focus-DevSecOps-red)
-![Docker](https://img.shields.io/badge/Container-Docker-blue)
+![CI/CD](https://img.shields.io/badge/Pipeline-GitHub%20Actions-blueviolet)
+![SAST](https://img.shields.io/badge/SAST-Bandit-yellow)
+![DAST](https://img.shields.io/badge/DAST-OWASP%20ZAP-orange)
 ![Wazuh](https://img.shields.io/badge/SIEM-Wazuh-green)
-![WAF](https://img.shields.io/badge/WAF-ModSecurity-orange)
 
 ## 📖 Sobre o Projeto
 
-O **Lab2Sec** é um ambiente de laboratório prático projetado para simular o ciclo de vida completo de DevSecOps: Desenvolvimento, Infraestrutura, Segurança Ofensiva e Defensiva.
+O **Lab2Sec** é um ambiente de laboratório prático projetado para simular o ciclo de vida completo de DevSecOps: do Código à Produção.
 
-O objetivo foi criar uma aplicação web vulnerável ("Legacy Code Simulation"), containerizá-la, orquestrar a infraestrutura e implementar uma estratégia de **Defesa em Profundidade** (Defense in Depth), combinando um **WAF** na borda para bloqueio e um **SIEM** interno para detecção.
+O projeto vai além da infraestrutura, implementando o conceito de **"Shift Left Security"**. Utilizamos automação de CI/CD para detectar vulnerabilidades no código e na aplicação em execução antes mesmo do deploy, além de manter uma defesa ativa em tempo real.
 
 ### 🏗️ Arquitetura (Defense in Depth)
 
-O projeto consiste em uma arquitetura de microsserviços orquestrada via Docker Compose:
+O ambiente é composto por microsserviços orquestrados via Docker Compose:
 
-1.  **WAF (Active Defense):** Um Proxy Reverso **Nginx** com **ModSecurity** (OWASP CRS) atuando como guarda-costas na porta 80. Ele intercepta e bloqueia ataques antes que cheguem à aplicação.
-2.  **Target App (Dev):** Uma aplicação Flask (Python) isolada na rede interna (sem acesso externo direto), simulando um E-commerce com vulnerabilidades intencionais.
-3.  **Database (Ops):** Um banco de dados PostgreSQL isolado.
-4.  **Security Agent (Sec):** O Agente Wazuh, instalado e configurado automaticamente dentro do contêiner da aplicação via Dockerfile.
-5.  **SIEM (Sec):** Um cluster Wazuh (Manager, Indexer, Dashboard) para análise de logs, correlação de eventos e alertas.
-
----
-
-## 🚀 Tecnologias Utilizadas
-
-* **Linguagem:** Python 3.10 (Flask, Psycopg2)
-* **Containerização:** Docker & Docker Compose
-* **WAF:** Nginx + ModSecurity + OWASP Core Rule Set (CRS)
-* **SIEM:** Wazuh 4.7.4
-* **Automação:** Shell Scripting e Dockerfile Multi-stage
-* **Ataque:** Scripts Python personalizados para SQL Injection
+1.  **WAF (Borda):** Nginx + ModSecurity (OWASP CRS) atuando como Proxy Reverso na porta 80, bloqueando ataques web.
+2.  **App (Backend):** Aplicação Flask (Python) vulnerável, isolada na rede interna.
+3.  **Database:** PostgreSQL.
+4.  **SIEM:** Cluster Wazuh para monitoramento e detecção de ameaças.
+5.  **Agente:** Instalado automaticamente dentro do contêiner do App.
 
 ---
 
-## ⚡ Funcionalidades e Destaques
+## 🔄 DevSecOps Pipeline (CI/CD)
 
-### 1. Aplicação "Vulnerable-by-Design"
-Endpoint de login (`/login`) que simula código legado vulnerável a SQL Injection. Gera logs estruturados (`syslog`) compatíveis com o SIEM.
+O projeto utiliza **GitHub Actions** para garantir a segurança em cada commit:
 
-### 2. Defesa Ativa (WAF)
-Implementação de um Web Application Firewall na borda.
+### 1. SAST (Static Application Security Testing) 🔍
+**Ferramenta:** [Bandit](https://github.com/PyCQA/bandit)
+* Analisa o código fonte Python em busca de falhas de segurança (ex: senhas hardcoded, SQLi, binds inseguros).
+* **Governança:** Implementação de *Risk Acceptance* (aceite de risco) documentado via `# nosec` para fins didáticos do laboratório.
+
+### 2. DAST (Dynamic Application Security Testing) 💥
+**Ferramenta:** [OWASP ZAP](https://www.zaproxy.org/)
+* Sobe a infraestrutura completa (WAF + App + DB) em um ambiente efêmero no GitHub.
+* Realiza ataques reais contra a aplicação rodando (através do WAF na porta 80).
+* Gera relatórios de conformidade e vulnerabilidades web.
+
+---
+
+## ⚡ Funcionalidades de Segurança
+
+### Defesa Ativa (WAF)
 * **Proxy Reverso:** Esconde a topologia da rede interna e o IP da aplicação.
-* **Bloqueio de Ataques:** Regras da OWASP configuradas para bloquear injeções de SQL (Erro 403 Forbidden) protegendo a aplicação vulnerável.
+* **Bloqueio:** Regras da OWASP configuradas para bloquear injeções de SQL (Erro 403 Forbidden) protegendo a aplicação vulnerável.
 
-### 3. Infraestrutura como Código (IaC)
-Todo o ambiente (5 contêineres + redes) é levantado com um único comando (`docker compose up`).
-
-### 4. Agente de Segurança Automatizado 🤖
-Instalação "Zero-Touch" do agente Wazuh durante o build do contêiner.
-* O `Dockerfile` baixa, instala e configura o `ossec.conf` automaticamente.
-* O agente se registra no servidor e inicia o monitoramento sem intervenção humana.
-
-### 5. Regras de Detecção Customizadas
-Regras XML personalizadas no Wazuh para identificar ataques que porventura passem pelo WAF ou ocorram internamente.
+### Detecção Inteligente (SIEM)
+* **Monitoramento de Logs:** O Agente Wazuh lê os logs da aplicação (`app.log`) em tempo real.
+* **Regras Customizadas:** Configuração XML para identificar padrões de ataque específicos que passaram pelo WAF ou ocorreram internamente.
 
 ```xml
 <group name="local,syslog,">
