@@ -173,3 +173,9 @@ if __name__ == '__main__':
     # 2. Depois, inicie o servidor web
     print("Iniciando o servidor Flask em http://0.0.0.0:5000")
     app.run(debug=False, host='0.0.0.0', port=5000)  # nosec
+
+
+# --- Rota Home (Health Check) ---
+@app.route("/", methods=['GET'])
+def home():
+    return jsonify({"status": "Loja Online Ativa", "version": "1.0"}), 200

@@ -1,4 +1,4 @@
-name: Pipeline de Segurança DevSecOps
+name: SAST - Teste Estatico de Segurança 
 
 # 1. O GATILHO: Quando rodar?
 # Roda em todo 'push' feito na branch 'master'
