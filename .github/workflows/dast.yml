@@ -29,18 +29,29 @@ jobs:
       - name: Subir Infraestrutura (WAF + App + DB)
         run: |
           docker compose up -d --build
-          echo "Aguardando 30 segundos para a infraestrutura subir..."
-          sleep 30  # Aumentei para 30s para garantir
+          echo "Aguardando 30 segundos para o WAF e App subirem..."
+          sleep 30
           docker ps
-          
-          echo "--- DEBUG: Testando conexão com o WAF ---"
-          curl -v http://localhost:80/
+          echo "--- DEBUG: Testando conexão com a Home ---"
+          curl -v http://localhost:80/ || echo "Falha ao conectar no WAF"
           echo "-----------------------------------------"
 
-      # Ataca a porta 80 (WAF) em vez da 5000
       - name: OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.9.0
         with:
-          target: 'http://localhost:80' # Ataca o Nginx
-          artifact_name: 'zap_report'
-          fail_action: false # Não quebra o build (apenas gera relatório)
+          target: 'http://localhost:80'
+          # Removemos o artifact_name para evitar o erro de upload interno
+          # artifact_name: 'zap_report' 
+          fail_action: false
+          allow_issue_writing: true
+
+      # NOVO PASSO: Upload Manual dos Relatórios (Usando a ferramenta oficial v4)
+      - name: Upload dos Relatórios ZAP
+        if: always() # Roda mesmo se o ZAP achar falhas
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-seguranca-zap
+          path: |
+            report_html.html
+            report_md.md
+            report_json.json
