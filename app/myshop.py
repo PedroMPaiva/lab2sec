@@ -113,8 +113,7 @@ def login():
     # --- AQUI ESTÁ A VULNERABILIDADE DE SQL INJECTION (REAL) ---
     # Estamos construindo a query por concatenação de strings.
     # Esta é a "dívida técnica" que simula o código legado.
-    query = "SELECT * FROM users WHERE username = '" + usuario_enviado + \
-        "' AND password = '" + senha_enviada + "'"  # nosec
+    query = "SELECT * FROM users WHERE username = '" + usuario_enviado + "' AND password = '" + senha_enviada + "'"  # nosec
     print(f"\n[LOG] Executando SQL vulnerável: {query}")
 
     conn = get_db_connection()
