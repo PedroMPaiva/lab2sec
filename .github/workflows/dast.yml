@@ -1,0 +1,38 @@
+name: DAST - Teste Dinâmico de Segurança (OWASP ZAP)
+
+on:
+  # Roda quando fazemos push na master
+  push:
+    branches: [ "master" ]
+  # Permite rodar manualmente clicando num botão no GitHub
+  workflow_dispatch:
+
+jobs:
+  zap_scan:
+    runs-on: ubuntu-latest
+    name: Scan de Vulnerabilidades Web
+
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v3
+
+      # 1. Subir a Aplicação (Para poder atacar, ela tem que estar rodando!)
+      - name: Subir o App com Docker Compose
+        run: |
+          # Sobe apenas o app e o banco (não precisamos do Wazuh/WAF agora para economizar tempo)
+          docker compose up -d app db
+          # Espera um pouco para o banco iniciar
+          sleep 15
+          # Verifica se está rodando
+          docker ps
+
+      # 2. Executar o OWASP ZAP (O Ataque)
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.9.0
+        with:
+          # Ataca o container na porta 5000 (que o docker compose expôs)
+          target: 'http://localhost:5000'
+          # Salva o relatório como 'zap_report'
+          artifact_name: 'zap_report'
+          # Não quebra o build por enquanto (para vermos o resultado primeiro)
+          fail_action: false
