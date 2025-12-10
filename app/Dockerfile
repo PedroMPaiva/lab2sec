@@ -27,4 +27,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD /var/ossec/bin/wazuh-agentd & python myshop.py
+CMD ["/bin/bash", "-c", "/var/ossec/bin/wazuh-agentd & python myshop.py"]

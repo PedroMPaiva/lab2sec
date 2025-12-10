@@ -1,7 +1,7 @@
 import os
 import time
-import psycopg2  # Novo import para falar com o Postgres
-from flask import Flask, request, jsonify
+import psycopg2
+from flask import Flask, request, jsonify, render_template
 import logging
 
 logging.basicConfig(filename='app.log', level=logging.INFO,
@@ -9,7 +9,6 @@ logging.basicConfig(filename='app.log', level=logging.INFO,
                     datefmt='%b %d %H:%M:%S')
 
 # --- 1. Configuração do Banco de Dados ---
-# O Docker Compose vai "injetar" estes valores no nosso ambiente
 DB_HOST = os.environ.get('DB_HOST')
 DB_NAME = os.environ.get('DB_NAME')
 DB_USER = os.environ.get('DB_USER')
@@ -19,9 +18,7 @@ DB_PASSWORD = os.environ.get('DB_PASSWORD')
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
-# --- 3. Função de Conexão (Novo) ---
-# Esta função nos conecta ao banco de dados.
-# Inclui um loop de "retry" pois o app pode iniciar antes do banco.
+# --- 3. Função de Conexão ---
 
 
 def get_db_connection():
@@ -37,26 +34,21 @@ def get_db_connection():
             print("Conexão com o PostgreSQL bem-sucedida!")
             return conn
         except psycopg2.OperationalError:
-            print(
-                "Erro ao conectar... O banco de dados pode estar iniciando. Tentando novamente em 5s.")
-            time.sleep(5)  # Espera 5 segundos e tenta de novo
+            print("Erro ao conectar... Tentando novamente em 5s.")
+            time.sleep(5)
             retries -= 1
-    print("ERRO: Não foi possível conectar ao banco de dados após várias tentativas.")
-    return None  # Retorna None se falhar
+    print("ERRO: Não foi possível conectar ao banco de dados.")
+    return None
 
-# --- 4. Função de Inicialização do Banco (Novo) ---
-# Esta função cria nossas tabelas e insere os dados de teste
+# --- 4. Função de Inicialização do Banco ---
 
 
 def init_db():
     conn = get_db_connection()
     if conn is None:
-        print("ERRO: Impossível inicializar o banco. Conexão nula.")
         return
 
-    # 'with' garante que o cursor e a conexão sejam fechados
     with conn.cursor() as cur:
-        # Cria a tabela de usuários
         cur.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -64,7 +56,6 @@ def init_db():
             password TEXT NOT NULL
         );
         ''')
-        # Cria a tabela de carrinhos
         cur.execute('''
         CREATE TABLE IF NOT EXISTS carts (
             id SERIAL PRIMARY KEY,
@@ -74,104 +65,90 @@ def init_db():
         );
         ''')
 
-        # Verifica se o admin já existe antes de inserir
         cur.execute("SELECT * FROM users WHERE username = 'admin'")
         if cur.fetchone() is None:
-            print("Populando o banco de dados com dados de teste...")
-            # Insere os usuários
+            print("Populando o banco de dados...")
             cur.execute(
                 "INSERT INTO users (username, password) VALUES (%s, %s)", ('admin', 'senha123'))
             cur.execute(
                 "INSERT INTO users (username, password) VALUES (%s, %s)", ('pedro', 'password'))
-
-            # Insere os carrinhos
             cur.execute("INSERT INTO carts (username, item, qtd) VALUES (%s, %s, %s)",
                         ('admin', 'Servidor Dell', 2))
             cur.execute("INSERT INTO carts (username, item, qtd) VALUES (%s, %s, %s)",
-                        # O valor 1000 que você testou
                         ('admin', 'Cadeira de Escritório', 1000))
             cur.execute("INSERT INTO carts (username, item, qtd) VALUES (%s, %s, %s)",
                         ('pedro', 'Teclado Mecânico', 1))
+        conn.commit()
+    print("Banco de dados inicializado.")
 
-        conn.commit()  # Salva as alterações no banco
-    print("Banco de dados inicializado com sucesso.")
+# --- ROTA HOME (MOVIDA PARA CÁ - ANTES DO APP.RUN) ---
 
-# --- 5. Endpoint de Login (Refatorado e VULNERÁVEL) ---
+
+@app.route("/home", methods=['GET'])
+def home():
+    # Retorna JSON simples (Status 200)
+    return jsonify({"status": "Loja Online Ativa", "versao": "1.0"}), 200
+
+# Se você quiser usar o HTML visual que criamos antes, use este:
+
+
+@app.route("/", methods=['GET'])
+def index():
+    # Retorna o arquivo index.html da pasta templates
+    return render_template("index.html")
+
+# --- 5. Endpoint de Login ---
+
+
 @app.route("/login", methods=['POST'])
 def login():
     dados = request.get_json()
     usuario_enviado = dados.get('usuario')
     senha_enviada = dados.get('senha')
+
     if "'" in usuario_enviado or "OR" in usuario_enviado.upper():
-        msg_alerta = f"[ALERTA DE SEGURANÇA] SQL Injection Detectado! IP Origem: {request.remote_addr} Payload: {usuario_enviado}"
-        print(msg_alerta)            # Mostra no terminal do Docker
-        # <--- SALVA NO ARQUIVO app.log PARA O WAZUH LER
+        msg_alerta = f"[ALERTA DE SEGURANÇA] SQL Injection Detectado! IP: {request.remote_addr} Payload: {usuario_enviado}"
+        print(msg_alerta)
         logging.critical(msg_alerta)
 
-    # --- AQUI ESTÁ A VULNERABILIDADE DE SQL INJECTION (REAL) ---
-    # Estamos construindo a query por concatenação de strings.
-    # Esta é a "dívida técnica" que simula o código legado.
-    query = "SELECT * FROM users WHERE username = '" + usuario_enviado + "' AND password = '" + senha_enviada + "'"  # nosec
-    print(f"\n[LOG] Executando SQL vulnerável: {query}")
+    query = "SELECT * FROM users WHERE username = '" + usuario_enviado + \
+        "' AND password = '" + senha_enviada + "'"  # nosec
+    print(f"\n[LOG] Executando SQL: {query}")
 
     conn = get_db_connection()
     if conn is None:
-        return jsonify({"erro": "Servidor indisponível"}), 503
+        return jsonify({"erro": "DB Off"}), 503
 
     with conn.cursor() as cur:
         try:
             cur.execute(query)
-            user = cur.fetchone()  # Pega o primeiro resultado
-
+            user = cur.fetchone()
             if user:
-                # O ataque 'admin' OR 1=1 --' VAI retornar um usuário (o admin)
-                # e o login será um sucesso.
-                print(f"[LOG] Usuário encontrado: {user[1]}")
                 return jsonify({"mensagem": f"Bem-vindo, {user[1]}!"}), 200
             else:
-                return jsonify({"erro": "Usuário ou senha inválidos"}), 401
+                return jsonify({"erro": "Inválido"}), 401
         except Exception as e:
-            print(f"ERRO DE SQL: {e}")
-            return jsonify({"erro": "Erro na consulta"}), 500
+            return jsonify({"erro": "Erro SQL"}), 500
 
-# --- 6. Endpoint de Carrinho (Refatorado e VULNERÁVEL) ---
+# --- 6. Endpoint de Carrinho ---
 
 
 @app.route("/carrinho/<string:nome_usuario>", methods=['GET'])
 def obter_carrinho(nome_usuario):
-    # --- AQUI ESTÁ A FALHA (IDOR) ---
-    # O código ainda confia cegamente no 'nome_usuario' vindo da URL.
-    # Ele não checa se o usuário logado é o 'nome_usuario'.
-    print(f"\n[LOG] Requisição recebida para o carrinho de: {nome_usuario}")
-
     conn = get_db_connection()
     if conn is None:
-        return jsonify({"erro": "Servidor indisponível"}), 503
-
+        return jsonify({"erro": "DB Off"}), 503
     with conn.cursor() as cur:
-        # A query em si é segura (parametrizada) para evitar uma *segunda* SQLi.
-        # A falha de segurança aqui é o IDOR (a lógica de negócio).
-        query = "SELECT item, qtd FROM carts WHERE username = %s"
-        cur.execute(query, (nome_usuario,))
-        carrinho_items = cur.fetchall()  # Pega todos os itens
-
-        if not carrinho_items:
-            return jsonify({"erro": "Carrinho não encontrado"}), 404
-
-        # Formata a saída
-        carrinho = [{"item": item, "qtd": qtd} for item, qtd in carrinho_items]
-        return jsonify(carrinho), 200
+        cur.execute(
+            "SELECT item, qtd FROM carts WHERE username = %s", (nome_usuario,))
+        items = cur.fetchall()
+        if not items:
+            return jsonify({"erro": "Vazio"}), 404
+        return jsonify([{"item": i, "qtd": q} for i, q in items]), 200
 
 
-# --- 7. "Abra o Restaurante" (Atualizado) ---
+# --- 7. Execução do Servidor (SEMPRE NO FINAL) ---
 if __name__ == '__main__':
-    print("Iniciando o serviço...")
-    # 1. Primeiro, garanta que o banco e as tabelas existam
     init_db()
-    # 2. Depois, inicie o servidor web
-    print("Iniciando o servidor Flask em http://0.0.0.0:5000")
+    print("Iniciando o servidor Flask...")
     app.run(debug=False, host='0.0.0.0', port=5000)  # nosec
-    
-@app.route("/", methods=['GET'])
-def home():
-    return jsonify({"status": "Loja Online Ativa", "version": "1.0"}), 200

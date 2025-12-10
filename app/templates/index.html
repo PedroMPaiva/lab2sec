@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab2Sec - Loja Vulnerável</title>
+    <style>
+        body { background-color: #0d1117; color: #ff0000ff; font-family: 'Courier New', monospace; text-align: center; padding: 50px; }
+        .container { max-width: 400px; margin: auto; border: 1px solid #ff0000ff; padding: 20px; box-shadow: 0 0 10px #ff0000ff; }
+        input { width: 90%; padding: 10px; margin: 10px 0; background: #000; border: 1px solid #30363d; color: white; }
+        button { background-color: #ff0000ff; color: black; padding: 10px 20px; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #cc0000ff; }
+        #resultado { margin-top: 20px; font-weight: bold; min-height: 20px; }
+        .hint { font-size: 0.8em; color: #8b949e; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1>🛡️ Lab2Sec Shop 🛡️</h1>
+    <p>Ambiente de Treinamento DevSecOps</p>
+
+    <div class="container">
+        <h3>Acesso Restrito</h3>
+        <input type="text" id="usuario" placeholder="Usuário">
+        <input type="password" id="senha" placeholder="Senha">
+        <button onclick="fazerLogin()">ENTRAR</button>
+        
+        <div id="resultado"></div>
+    </div>
+
+    <div class="hint">
+        <p>Dica CTF: O admin adora deixar comentários SQL...</p>
+    </div>
+
+    <script>
+        async function fazerLogin() {
+            const usuario = document.getElementById('usuario').value;
+            const senha = document.getElementById('senha').value;
+            const resultadoDiv = document.getElementById('resultado');
+
+            // Envia como JSON (igual ao script Python)
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario: usuario, senha: senha })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultadoDiv.style.color = '#00ff41';
+                    resultadoDiv.innerText = "SUCESSO: " + (data.mensagem || JSON.stringify(data));
+                } else {
+                    resultadoDiv.style.color = 'red';
+                    resultadoDiv.innerText = "FALHA: " + (data.erro || response.statusText);
+                }
+            } catch (error) {
+                resultadoDiv.style.color = 'red';
+                resultadoDiv.innerText = "ERRO DE REDE/WAF (403?)";
+            }
+        }
+    </script>
+</body>
+</html>

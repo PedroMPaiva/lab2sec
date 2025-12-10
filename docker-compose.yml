@@ -5,7 +5,7 @@ services: # A conjunto de contêineres que ira rodar
   waf:
     build: ./waf
     ports:
-      - "80:80" # A porta de entrada agora é a 80 (padrão web)
+      - "8080:80" # A porta de entrada agora é a 80 (padrão web)
     depends_on:
       - app
     networks:
